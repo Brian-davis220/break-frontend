@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Car, Database, ChevronRight, Github, ExternalLink, ShieldCheck } from 'lucide-react';
-import { getHealth, getData, getCars } from './api';
+import { Activity, Car, Database, ChevronRight, Terminal, ExternalLink, ShieldCheck, Plus, Trash2, Edit3, X } from 'lucide-react';
+import { getHealth, getData, getCars, createCar, deleteCar, updateCar } from './api';
 import './index.css';
 
 const Navbar = () => (
@@ -29,18 +29,20 @@ const Hero = () => (
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
     >
-      <span className="hero-badge">v1.0.0 Now Active</span>
+      <span className="hero-badge">v1.1.0 Management Suite</span>
       <h1 className="hero-title">
         The Future of <span>Dynamic</span> Architecture
       </h1>
       <p className="hero-subtitle">
         A seamless fusion of high-performance backend systems and fluid, responsive interfaces.
-        Designed for those who demand more from their digital experiences.
+        Manage your assets with precision and elegance.
       </p>
       <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-        <button className="glass" style={{ padding: '0.8rem 2rem', background: '#6366f1', color: 'white', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
-          Explore Now
-        </button>
+        <a href="#cars" style={{ textDecoration: 'none' }}>
+          <button className="glass" style={{ padding: '0.8rem 2rem', background: '#6366f1', color: 'white', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+            Manage Fleet
+          </button>
+        </a>
         <button className="glass" style={{ padding: '0.8rem 2rem', color: 'white', fontWeight: 600, cursor: 'pointer' }}>
           Documentation
         </button>
@@ -49,46 +51,147 @@ const Hero = () => (
   </header>
 );
 
-const Card = ({ icon: Icon, title, description, badge }) => (
+const CarCard = ({ car, onDelete, onEdit }) => (
   <motion.div
+    layout
     whileHover={{ y: -10 }}
     className="card glass"
   >
-    <div className="card-icon"><Icon size={24} /></div>
-    {badge && <span style={{ fontSize: '0.7rem', color: '#6366f1', fontWeight: 800 }}>{badge}</span>}
-    <h3 className="card-title">{title}</h3>
-    <p className="card-desc">{description}</p>
-    <button style={{ marginTop: '1.5rem', background: 'none', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600 }}>
-      View Details <ChevronRight size={16} />
-    </button>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="card-icon"><Car size={24} /></div>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button onClick={() => onEdit(car)} className="icon-btn" style={{ background: 'rgba(99,102,241,0.1)', border: 'none', color: '#6366f1', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer' }}>
+          <Edit3 size={16} />
+        </button>
+        <button onClick={() => onDelete(car._id || car.id)} className="icon-btn" style={{ background: 'rgba(244,63,94,0.1)', border: 'none', color: '#f43f5e', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer' }}>
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+    <span style={{ fontSize: '0.7rem', color: '#6366f1', fontWeight: 800 }}>${car.price || '0.00'}</span>
+    <h3 className="card-title">{car.make} {car.model}</h3>
+    <p className="card-desc">
+      A high-performance {car.color || 'sleek'} model from {car.year}.
+    </p>
   </motion.div>
 );
+
+const CarModal = ({ isOpen, onClose, onSubmit, initialData }) => {
+  const [formData, setFormData] = useState({
+    make: '',
+    model: '',
+    year: new Date().getFullYear(),
+    color: '',
+    price: '',
+    ...initialData
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass"
+        style={{ padding: '2.5rem', width: '100%', maxWidth: '500px', margin: '1rem' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+          <h2 style={{ fontSize: '1.5rem' }}>{initialData ? 'Update Vehicle' : 'Add New Vehicle'}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X /></button>
+        </div>
+
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }}>
+          <div className="form-grid">
+            <div className="input-group">
+              <label>Make</label>
+              <input value={formData.make} onChange={e => setFormData({ ...formData, make: e.target.value })} required className="glass" />
+            </div>
+            <div className="input-group">
+              <label>Model</label>
+              <input value={formData.model} onChange={e => setFormData({ ...formData, model: e.target.value })} required className="glass" />
+            </div>
+            <div className="input-group">
+              <label>Year</label>
+              <input type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} required className="glass" />
+            </div>
+            <div className="input-group">
+              <label>Color</label>
+              <input value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} className="glass" />
+            </div>
+            <div className="input-group" style={{ gridColumn: 'span 2' }}>
+              <label>Price ($)</label>
+              <input type="number" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} className="glass" />
+            </div>
+          </div>
+          <button type="submit" className="glass" style={{ width: '100%', marginTop: '2rem', padding: '1rem', background: '#6366f1', color: 'white', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            {initialData ? 'Save Changes' : 'Add to Fleet'}
+          </button>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
 
 function App() {
   const [data, setData] = useState([]);
   const [cars, setCars] = useState([]);
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCar, setEditingCar] = useState(null);
+
+  const fetchAllData = async () => {
+    try {
+      const [healthRes, dataRes, carsRes] = await Promise.all([
+        getHealth(),
+        getData(),
+        getCars()
+      ]);
+      setHealth(healthRes.data);
+      setData(dataRes.data);
+      setCars(carsRes.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [healthRes, dataRes, carsRes] = await Promise.all([
-          getHealth(),
-          getData(),
-          getCars()
-        ]);
-        setHealth(healthRes.data);
-        setData(dataRes.data);
-        setCars(carsRes.data);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchAllData();
   }, []);
+
+  const handleAddCar = async (carData) => {
+    try {
+      await createCar(carData);
+      setIsModalOpen(false);
+      fetchAllData();
+    } catch (error) {
+      alert('Failed to add car. Please check your backend connection.');
+    }
+  };
+
+  const handleUpdateCar = async (carData) => {
+    try {
+      await updateCar(editingCar._id || editingCar.id, carData);
+      setEditingCar(null);
+      fetchAllData();
+    } catch (error) {
+      alert('Failed to update car.');
+    }
+  };
+
+  const handleDeleteCar = async (id) => {
+    if (window.confirm('Are you sure you want to remove this vehicle?')) {
+      try {
+        await deleteCar(id);
+        fetchAllData();
+      } catch (error) {
+        alert('Failed to delete car.');
+      }
+    }
+  };
 
   return (
     <div className="App">
@@ -124,13 +227,12 @@ function App() {
           ) : (
             <div className="grid">
               {data.map((item) => (
-                <Card
-                  key={item.id}
-                  icon={Database}
-                  title={item.name}
-                  description={`Status: ${item.status}. This item is synchronized with the backend real-time storage engine.`}
-                  badge={`SYSTEM_ID: ${item.id}`}
-                />
+                <div key={item.id} className="card glass">
+                  <div className="card-icon"><Database size={24} /></div>
+                  <span style={{ fontSize: '0.7rem', color: '#6366f1', fontWeight: 800 }}>SYSTEM_ID: {item.id}</span>
+                  <h3 className="card-title">{item.name}</h3>
+                  <p className="card-desc">Status: {item.status}. This item is synchronized with the backend real-time storage engine.</p>
+                </div>
               ))}
             </div>
           )}
@@ -139,28 +241,54 @@ function App() {
         {/* Cars Fleet Section */}
         <section id="cars" style={{ marginBottom: '8rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
-            <h2 className="section-title" style={{ marginBottom: 0 }}>Active Fleet</h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>{cars.length} vehicles detected in database</p>
+            <div>
+              <h2 className="section-title" style={{ marginBottom: '0.5rem' }}>Active Fleet</h2>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>{cars.length} vehicles detected in database</p>
+            </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="glass"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', background: '#6366f1', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+            >
+              <Plus size={20} /> Add Vehicle
+            </button>
           </div>
-          <div className="grid">
-            {cars.map((car) => (
-              <Card
-                key={car.id || car._id}
-                icon={Car}
-                title={`${car.make} ${car.model}`}
-                description={`A high-performance ${car.color || 'sleek'} model from ${car.year}. Integrated via MongoDB storage.`}
-                badge={car.regNo || 'VNTG-CAR'}
-              />
-            ))}
-            {cars.length === 0 && !loading && (
-              <div className="glass" style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
-                <Car size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
-                <p>No vehicles found in the fleet database.</p>
-              </div>
-            )}
-          </div>
+
+          <AnimatePresence>
+            <div className="grid">
+              {cars.map((car) => (
+                <CarCard
+                  key={car._id || car.id}
+                  car={car}
+                  onDelete={handleDeleteCar}
+                  onEdit={setEditingCar}
+                />
+              ))}
+              {cars.length === 0 && !loading && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass" style={{ gridColumn: '1 / -1', padding: '5rem', textAlign: 'center', color: '#94a3b8' }}>
+                  <Car size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
+                  <p>Database is empty. Add your first vehicle to get started.</p>
+                </motion.div>
+              )}
+            </div>
+          </AnimatePresence>
         </section>
       </main>
+
+      {/* Modals */}
+      <CarModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddCar}
+      />
+      {editingCar && (
+        <CarModal
+          isOpen={true}
+          onClose={() => setEditingCar(null)}
+          onSubmit={handleUpdateCar}
+          initialData={editingCar}
+        />
+      )}
 
       {/* Footer */}
       <footer style={{ padding: '4rem 0', borderTop: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)' }}>
@@ -170,7 +298,7 @@ function App() {
             <p style={{ fontSize: '0.8rem', color: '#64748b' }}>© 2026 Break Systems Corp. All rights reserved.</p>
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', color: '#94a3b8' }}>
-            <Github size={20} cursor="pointer" />
+            <Terminal size={20} cursor="pointer" />
             <ExternalLink size={20} cursor="pointer" />
             <ShieldCheck size={20} cursor="pointer" />
           </div>
